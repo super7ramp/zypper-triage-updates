@@ -63,33 +63,54 @@ END {
     print "Total: " total
 }
 
+#
 # Returns 1 if given string matches the expected version format, 0 otherwise.
 # Expected version format is "{upstream_version}-{release_version}.{rebuild_counter}".
+#
 function is_version(str) {
     return str ~ /^[^-]+-[^\.-]+\.[^\.-]+$/
 }
 
-# Returns a string describing the kind of update given two versions.
+#
+# Returns a string describing the kind of update given two versions, respecting the
+# format "{upstream_version}-{release_version}.{rebuild_counter}".
+#
+# Examples:
+#
+# * 1.0.0-1.0 -> 1.0.1-1.0: Upstream update (the upstream version has changed)
+# * 1.0.0-1.0 -> 1.0.0-2.0: Downstream update (the upstream version hasn't
+#                           changed but the release version has)
+# * 1.0.0-1.0 -> 1.0.0-1.1: Downstream rebuild (neither the upstream version
+#                           nor the release versions have changed)
+#
 function determine_update_kind(old_version, new_version) {
 
-    new_version_suffix = substr(new_version, diff(old_version, new_version))
+    # version_diff is the substring that differs between old and new versions.
+    version_diff = substr(new_version, diff(old_version, new_version))
 
-    if (index(new_version_suffix, "-") > 0) {
-        # If "-" is in the diff, it means that preceding upstream versions are different
+    if (index(version_diff, "-") > 0) {
+        # If "-" is in the diff, then the preceding upstream version part differs.
+        # Example: "1.0.0-1.0" -> "1.0.1-1.0", version_diff is "1-1.0".
         return "Upstream update"
     }
     
-    if (index(new_version_suffix, ".") > 0) {
-        # If "." is in the diff, it means that preceding release versions are different
+    if (index(version_diff, ".") > 0) {
+        # If "." is in the diff, then the preceding release version part differs.
+        # Example: "1.0.0-1.0" -> "1.0.0-2.0": version_diff is "2.0".
         return "Downstream update"
     }
 
-    # Only rebuild counter part differs between old and new versions
+    # Only rebuild counter part differs between old and new versions.
+    # Example: "1.0.0-1.0" -> "1.0.0-1.1": version_diff is "1".
+    # No check is actually made, assuming zypper output does not produce an
+    # update to the exact same version.
     return "Downstream rebuild"
 }
 
+#
 # Returns the index of the first different character between two strings.
 # If one of the string starts with the other (containing it), 0 is returned.
+#
 function diff(str1, str2) {
     split(str1, str1_chars, "")
     split(str2, str2_chars, "")
@@ -104,12 +125,16 @@ function diff(str1, str2) {
     return diff_start_index
 }
 
-# Return min value between two integers.
+#
+# Returns min value between two integers.
+#
 function min(int1, int2) {
    return int1 < int2 ? int1 : int2
 }
 
-# Return 
+#
+# Returns the percentage representation of part / total.
+#
 function percentage(part, total) {
    return part * 100 / total
 }
